@@ -50,7 +50,7 @@ flag_done = false; %| indicates completion status of the script
 outVars = {'iresamp','flag_done','clf_resamp_results',...
            'aux_info','opt', 'timeStamp', 'mFileName'}; 
 
-cwd = fileparts(mfilename('fullpath'));
+% cwd = fileparts(mfilename('fullpath'));
 outname=['VOL_',diffusionType,'_BAL_gender_LOO_',session];
 
 %%% regexp cleanup to ensure output-name is a valid filename %%%%
@@ -58,7 +58,9 @@ outname=['VOL_',diffusionType,'_BAL_gender_LOO_',session];
 % outname = regexprep(outname,'+','p');
 % outname = regexprep(outname,'-','m');
 outname
-outpath = fullfile(cwd,outname);
+[~,cwd] = system('pwd')
+outpath = strcat(cwd,'/',outname)
+% outpath = fullfile(cwd,outname);
 % return
 %% setup design matrix and labels
 %==============================================================================%

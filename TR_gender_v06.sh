@@ -1,6 +1,6 @@
 #! /bin/bash
 #
-# This script has been created to run the ./TR_gender_v06 
+# This script has been created to run the ./TR_gender_v12 
 # command and is designed to be run via qsub, as in:
 #		qsub /path/to/scriptname
 #
@@ -23,9 +23,9 @@
 ####
 #### save the standard output. By default, the output will be saved into your
 #### home directory. The "-o" option lets you specify an alternative directory.
-#$ -o /cbica/home/watanabt/sge_job_output/TR_gender_v06.$JOB_ID.stdout
+#$ -o /cbica/home/watanabt/sge_job_output/TR_gender_v12.$JOB_ID.stdout
 #### save the standard error:
-#$ -e /cbica/home/watanabt/sge_job_output/TR_gender_v06.$JOB_ID.stderr
+#$ -e /cbica/home/watanabt/sge_job_output/TR_gender_v12.$JOB_ID.stderr
 ####
 #### My email address:
 #$ -M Takanori.Watanabe@uphs.upenn.edu
@@ -70,28 +70,28 @@
 #### that can run at once.
 #### 
 #### 
-#$ -l h_vmem=8G
+#$ -l h_vmem=12G
 #### 
 ################################## END OF DEFAULT EMBEDDED SGE COMMANDS###################
 
 
 # Send some output to standard output (saved into the
-# file /cbica/home/watanabt/sge_job_output/TR_gender_v06.$JOB_ID.stdout) and standard error (saved
-# into the file /cbica/home/watanabt/sge_job_output/TR_gender_v06.$JOB_ID.stderr) to make
+# file /cbica/home/watanabt/sge_job_output/TR_gender_v12.$JOB_ID.stdout) and standard error (saved
+# into the file /cbica/home/watanabt/sge_job_output/TR_gender_v12.$JOB_ID.stderr) to make
 # it easier to diagnose queued commands
 
-/bin/echo "Command: ./TR_gender_v06"
+/bin/echo "Command: ./TR_gender_v12"
 /bin/echo "Arguments: "
 /bin/echo -e "Executing in: \c"; pwd
 /bin/echo -e "Executing on: \c"; hostname
 /bin/echo -e "Executing at: \c"; date
-/bin/echo "----- STDOUT from ./TR_gender_v06 below this line -----"
+/bin/echo "----- STDOUT from ./TR_gender_v12 below this line -----"
 
-/bin/echo "Command: ./TR_gender_v06" 1>&2
+/bin/echo "Command: ./TR_gender_v12" 1>&2
 /bin/echo "Arguments: " 1>&2
 ( /bin/echo -e "Executing in: \c"; pwd ) 1>&2
 ( /bin/echo -e "Executing on: \c"; hostname ) 1>&2
 ( /bin/echo -e "Executing at: \c"; date ) 1>&2
-/bin/echo "----- STDERR from ./TR_gender_v06 below this line -----" 1>&2
+/bin/echo "----- STDERR from ./TR_gender_v12 below this line -----" 1>&2
 
-./TR_gender_v06 
+./TR_gender_v12 

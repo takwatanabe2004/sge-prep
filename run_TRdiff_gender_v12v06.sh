@@ -27,7 +27,7 @@ else
       args="${args} \"${token}\"" 
       shift
   done
-  eval "\"${exe_dir}/savemat_tester\"" $args
+  eval "\"${exe_dir}/TRdiff_gender_v12v06\"" $args
 fi
 exit
 

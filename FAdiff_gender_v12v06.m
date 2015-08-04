@@ -1,8 +1,8 @@
-%% tw_0802_balanced_gender_LOO_VOL_template.m
+%% tw_0802_balanced_gender_LOO_VOLdiff_template.m
 %==============================================================================%
-% - Use the features of FA/TR volumes to classify gender
+% - Use the "diff" features of FA/TR volumes to classify gender
 %------------------------------------------------------------------------------%
-%
+% Code based on graphnet_FAdiff_v24_v06m_DX.m, but lot of things trimmed
 %==============================================================================%
 % 07/31/2015
 %%
@@ -10,11 +10,11 @@ clear all;
 purge;
 
 %% setup
-% diffusionType = 'FA'; % {'FA', 'TR'}
-diffusionType = 'TR'; % {'FA', 'TR'}
+diffusionType = 'FA'; % {'FA', 'TR'}
+% diffusionType = 'TR'; % {'FA', 'TR'}
 
-session='v12'; % {'v06','v12','v24'}
-
+time2='v12';
+time1='v06';
 %% load data
 switch upper(diffusionType)
     case 'FA'
@@ -29,6 +29,8 @@ end
 p = size(Xfull,2);
 C = graph_info.incidenceMatrix;
 %% setup classifier
+% opt.zscore = true; % <- normalize?
+
 %%%%%% logistic graphnet %%%%%%%%%%
 opt.training.lam = 2^-8;
 opt.training.gam = 2^-2;
@@ -47,55 +49,94 @@ timeStamp = tak_timestamp;
 flag_done = false; %| indicates completion status of the script
 
 %| 'iresamp' saved since i save intermediate result every iteration
-outVars = {'iresamp','flag_done','clf_resamp_results',...
+outVars = {'iresamp','flag_done','clf_resamp_results', 'meta_info_diff',...
            'aux_info','opt', 'timeStamp', 'mFileName'}; 
 
-% cwd = fileparts(mfilename('fullpath'));
-outname=['VOL_',diffusionType,'_BAL_gender_LOO_',session];
-
-%%% regexp cleanup to ensure output-name is a valid filename %%%%
-% outname = regexprep(outname,'Not ASD','TDI');
-% outname = regexprep(outname,'+','p');
-% outname = regexprep(outname,'-','m');
+cwd = fileparts(mfilename('fullpath'));
+outname=['VOL_',diffusionType,'diff_BAL_gender_LOO_',time2,time1];
+% outname
+% outpath = fullfile(cwd,outname);
 outname
 [~,cwd] = system('pwd')
 outpath = strcat(cwd,'/',outname)
-% outpath = fullfile(cwd,outname);
 % return
-%% setup design matrix and labels
+%% cookup "diff" features using two time points: time2 and time1 (time2 > time1)
+%| unique subjects
+[scan_info, scan_count] = tak_get_session_info(meta_info);
+
+time_diff = [time2,'_',time1];
+mask.session = session_mask.(time_diff);
+
+%| #subjects who has scans at both time1 & time2
+nsubj =   scan_count.(time_diff);
+
+%| since "lookups" are ordered, time1, time2 should be interleaved after masking
+Xtmp = Xfull(mask.session,:); 
+lookup = meta_info.lookup(mask.session);
+
+%| the "diff" features
+Xdiff = zeros(nsubj,p);
+
+for i = 1:nsubj
+    ii = 1 + 2*(i-1);
+    Xdiff(i,:) = Xtmp(ii+1,:) - Xtmp(ii,:);
+    diffList{i,1} = [lookup{ii+1},' - ', lookup{ii}];
+
+    %==========================================================================%
+    % sanity check: ensure i'm taking the "diff" of the right data
+    %==========================================================================%
+    %| are we looking at the same subject?  check subject IDs
+    test1 = isequal(lookup{ii}(1:6), lookup{ii+1}(1:6));
+    
+    %| check for time points
+    test2 = strcmpi(lookup{ii+1}(9:10), num2str(time2(2:3))  );
+    test3 = strcmpi(lookup{ii}(9:10),   num2str(time1(2:3))  );
+    
+    %| test assertion
+    assert( test1 &&  test2 && test3 )
+end
+aux_info.diffList = diffList;
+
+%| get "meta_info" for our diff features
+meta_info_diff = tak_meta_info_mask(meta_info,mask.session);
+
+%| 2nd mask to get "every other" scans 
+%| (these should be time2 scans as i'm taking even indices here)
+mask_even = false(2*nsubj,1);
+mask_even(2:2:2*nsubj) = true;
+
+meta_info_diff = tak_meta_info_mask(meta_info_diff, mask_even);
+% return
+%%
 %==============================================================================%
 % break data into "groups" for binary classification
 %==============================================================================%
 fmask = @(Cell,Str) tak_cell_find_string(Str,Cell);
 
-switch session
-    case 'v06'
-        mask_session = meta_info.session == 6;
-    case 'v12'
-        mask_session = meta_info.session == 12;
-    case 'v24'
-        mask_session = meta_info.session == 24;
-end
-
-
-% get masks for the two groups of interest
-mask.group1 = fmask(meta_info.gender, 'male')   & mask_session;
-mask.group2 = fmask(meta_info.gender, 'female') & mask_session;
-
-aux_info.meta_info = tak_meta_info_mask(meta_info, mask.group1 | mask.group2);
-aux_info.meta_info_group1 = tak_meta_info_mask(meta_info, mask.group1);
-aux_info.meta_info_group2 = tak_meta_info_mask(meta_info, mask.group2);
-tak_meta_info_summary(aux_info.meta_info)
+mask.group1 = fmask(meta_info_diff.gender, 'male');
+mask.group2 = fmask(meta_info_diff.gender, 'female');
+% return
+% fprintf('%s = %d\n', group1, sum(mask.group1))
+% fprintf('%s = %d\n-----------------\n', group2, sum(mask.group2))
 
 %| first group: set as "positive" class
-Xp = Xfull(mask.group1,:);
+Xp = Xdiff(mask.group1,:);
 yp = ones( sum(mask.group1), 1);
 
 %| second group: set as "negative" class
-Xn = Xfull(mask.group2,:);
+Xn = Xdiff(mask.group2,:);
 yn = -ones(sum(mask.group2), 1);
 
 aux_info.mask = mask;
+
+meta_info_masked = tak_meta_info_mask(meta_info_diff, mask.group1 | mask.group2);
+meta_info_group1 = tak_meta_info_mask(meta_info_diff, mask.group1);
+meta_info_group2 = tak_meta_info_mask(meta_info_diff, mask.group2);
+tak_meta_info_summary(meta_info_masked)
+
+aux_info.meta_info = meta_info_masked;
+aux_info.meta_info_group1 = meta_info_group1;
+aux_info.meta_info_group2 = meta_info_group2;
 % return
 %% setup LOO-cross validation with dataset forced to balance with resampling
 %| # resampling of larger class for data balancing
@@ -106,6 +147,7 @@ np = length(yp);
 nn = length(yn);
 n = 2 * min([np,nn]); 
 
+
 opt.K = n;% <- LOO, so #folds = # samples
 
 aux_info.rng_seed = 0; % <- info for replicability
@@ -115,6 +157,7 @@ rng(aux_info.rng_seed)
 
 tic
 for iresamp = 1:aux_info.nresamp
+%     iresamp
     if mod(iresamp,5)==0
         fprintf('%3d out of %3d (%7.2f sec)\n',iresamp,aux_info.nresamp,toc);
     end
@@ -171,6 +214,7 @@ for iresamp = 1:aux_info.nresamp
     aux_info.tpr(iresamp,  :) = clf_output.tpr;
     aux_info.cv_info(iresamp) = clf_output.cv_info;
 %     aux_info
+%     keyboard
     %%
     save(outpath,outVars{:}) 
     %==========================================================================%
