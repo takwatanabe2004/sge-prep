@@ -10,7 +10,7 @@ clear all;
 purge;
 
 %| show label distribution of the two groups of interest
-flag_print_labeldistr = true;
+flag_print_labeldistr = false;
 %% setup
 diffusionType = 'FA'; % {'FA', 'TR'}
 % diffusionType = 'TR'; % {'FA', 'TR'}
@@ -94,11 +94,11 @@ opt.ftest  = @(X,model) tak_clf_linear_model_predict(X,model);
 %% load data
 switch upper(diffusionType)
     case 'FA'
-        load('IBIS_FAvol_avgdsamp_0723_2015.mat')
+        load([fileparts(pwd),'/data/IBIS_FAvol_avgdsamp_0723_2015.mat'])
         Xfull = design_FA;
         clear design_FA;
     case 'TR'
-        load('IBIS_TRvol_avgdsamp_0723_2015.mat')
+        load([fileparts(pwd),'/data/IBIS_TRvol_avgdsamp_0723_2015.mat'])
         Xfull = design_TR;
         clear design_TR
 end
