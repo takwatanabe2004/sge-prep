@@ -7,6 +7,7 @@
 % 07/31/2015
 %%
 clear all; 
+addpath([fileparts(pwd),'/util-shared/'])
 purge;
 
 %% setup
@@ -24,11 +25,11 @@ group  = 'group';   group1 = 'HR+';     group2 = 'HR-';
 %% load data
 switch upper(diffusionType)
     case 'FA'
-        load('IBIS_FAvol_avgdsamp_0723_2015.mat')
+        load([fileparts(pwd),'/data/IBIS_FAvol_avgdsamp_0723_2015.mat'])
         Xfull = design_FA;
         clear design_FA;
     case 'TR'
-        load('IBIS_TRvol_avgdsamp_0723_2015.mat')
+        load([fileparts(pwd),'/data/IBIS_TRvol_avgdsamp_0723_2015.mat'])
         Xfull = design_TR;
         clear design_TR
 end
