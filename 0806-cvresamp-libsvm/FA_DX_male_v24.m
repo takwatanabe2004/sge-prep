@@ -81,8 +81,8 @@ opt.libsvm_setup = @(lam,gam) ...
 %==============================================================================%
 % gridsearch range
 %==============================================================================%
-opt.lamgrid = 2.^[-14:14]; % C value in SVM
-opt.gamgrid = 2.^[-15:15];  % RBF kernel
+opt.lamgrid = 2.^[-20:2:20]; % C value in SVM
+opt.gamgrid = 2.^[-30:2:30];  % RBF kernel
 disp('*** lamgrid ***')
 fprintf('%14.10f\n', opt.lamgrid)
 disp('*** gamgrid ***')
