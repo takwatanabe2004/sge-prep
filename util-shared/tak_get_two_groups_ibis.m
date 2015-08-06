@@ -3,6 +3,11 @@ function [Xgroup1,Xgroup2,meta_info_group, mask] = ...
 % [Xgroup1,Xgroup2,meta_info_group, mask] = ...
 %                   tak_get_two_groups_ibis(X, meta_info, group, gender,session)
 %==============================================================================%
+% Update: 08/05/2015
+% - the "upper" function does always not seem to work on the SGE submission...
+%   (learned this the hard way)
+% - thus changed the case statement with brute force option selections
+%==============================================================================%
 % Create "diff" features using two time points: time2 and time1 (time2 > time1)
 %
 % group = one of the following: {'DX', 'HR+LR-', 'HR+HR-', 'risk', 'gender'}
@@ -76,20 +81,20 @@ else
 end
 premask  = mask_gender & mask_session;
 
-switch upper(group)
-    case 'DX'
+switch group
+    case {'DX', 'Dx', 'dx'}
         mask.group1 = fmask('ASD',meta_info.DX) & premask;
         mask.group2 = fmask('Not ASD',meta_info.DX) & premask;
-    case 'RISK'
+    case {'RISK', 'risk', 'Risk'}
         mask.group1 = fmask('HR',meta_info.risk) & premask;
         mask.group2 = fmask('LR',meta_info.risk) & premask;
-    case {'HR+LR-', 'HRPLRP'}
+    case {'HR+LR-', 'HRPLRP', 'HRpLRm'}
         mask.group1 = fmask('HR+',meta_info.group) & premask;
         mask.group2 = fmask('LR-',meta_info.group) & premask;
-    case {'HR+HR-', 'HRPHRM'}
+    case {'HR+HR-', 'HRPHRM', 'HRpHRm'}
         mask.group1 = fmask('HR+',meta_info.group) & premask;
         mask.group2 = fmask('HR-',meta_info.group) & premask;
-    case 'GENDER'
+    case {'GENDER','gender','Gender'}
         mask.group1 = fmask(  'male', meta_info.gender) & premask;
         mask.group2 = fmask('female', meta_info.gender) & premask;
     otherwise
