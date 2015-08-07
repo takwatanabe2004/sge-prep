@@ -1,7 +1,7 @@
 clear
-diffList = {'FA','TR'};
-setup.diff  = true;
-groupList = {'DX', 'HRpLRm', 'HRpHRm', 'risk', 'gender'}
+diffList = {'FA','TR'}; % 2 
+setup.diff  = true; 
+groupList = {'DX', 'HRpLRm', 'HRpHRm', 'risk', 'gender'} % 
 genderList= {'male','male',  'male',   'male',  ''};
 clfList =  {'liblinL1', 'liblinL2'};
 time2List = {'v12', 'v24', 'v24'};
@@ -22,7 +22,7 @@ for dozscore = zscoreList
                 for it = 1:length(time2List)
                     setup.time2 = time2List{it};
                     setup.time1 = time1List{it}
-                    tw_0807_bal_gridsearch_vol_cv_resamp_liblin_fcn_diff(setup)
+                    trun_0807_bal_gridsearch_vol_cv_resamp_liblin_fcn_diff(setup)
                 end
             end
         end

@@ -19,10 +19,11 @@ function trun_0807_bal_gridsearch_vol_cv_resamp_liblin_fcn_diff(setup)
 %%
 
 %| show label distribution of the two groups of interest
-flag_print_labeldistr = true;
+flag_print_labeldistr = false;
 
 %| load relevant meta_info here
-load('IBIS_FAvol_avgdsamp_0723_2015','graph_info','meta_info','session_mask')
+load([fileparts(pwd),'/data/IBIS_FAvol_avgdsamp_0723_2015'],...
+       'graph_info','meta_info','session_mask')
 p = size(graph_info.adjacencyMatrix,1);
 
 % tak_meta_info_summary(meta_info)
@@ -97,7 +98,7 @@ end
 %==============================================================================%
 % gridsearch range
 %==============================================================================%
-opt.lamgrid = 2.^[-15:0.5:15]; % C value in SVM
+opt.lamgrid = 2.^[-10:20]; % C value in SVM
 setup.lamgrid = opt.lamgrid;
 disp('*** lamgrid ***')
 fprintf('%14.10f\n', opt.lamgrid)
@@ -132,11 +133,11 @@ outpath = fullfile(pwd,outname)
 %% \======================= setup completed ====================================
 %% construct feature matrix with the setup specified above
 if strcmpi(setup.diffusion,'FA')
-    load('IBIS_FAvol_avgdsamp_0723_2015.mat', 'design_FA')
+    load([fileparts(pwd),'/data/IBIS_FAvol_avgdsamp_0723_2015'],'design_FA')
     Xfull = design_FA;
     clear design_FA
 elseif strcmpi(setup.diffusion, 'TR')
-    load('IBIS_TRvol_avgdsamp_0723_2015.mat', 'design_TR')
+    load([fileparts(pwd),'/data/IBIS_TRvol_avgdsamp_0723_2015'], 'design_TR')
     Xfull = design_TR;
     clear design_TR
 end
