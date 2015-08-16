@@ -1,1 +1,2 @@
-Keep "**shared**" matlab functions in here
+TERMINATED!!!
+GRID SEARCH RANGE WAS WAY TOO LONG
