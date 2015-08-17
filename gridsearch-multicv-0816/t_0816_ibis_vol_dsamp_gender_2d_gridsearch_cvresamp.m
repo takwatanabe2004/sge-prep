@@ -5,7 +5,7 @@ drawnow
 
 diffusionList = {'FA','TR','AX','RD'};
 sessionList = {'v06', 'v12', 'v24'};
-setup.clfmodel = 'flass'; % {'elnet','grnet','flass','isotv'}
+setup.clfmodel = 'elnet'; % {'elnet','grnet','flass','isotv'}
 
 train_groupList = {'HR-','LR-'};
 test_groupList  = {'LR-','HR-'};
@@ -24,8 +24,8 @@ else
     setup.lamgrid = 2.^[-16:1:-1]; % L1
     setup.gamgrid = 2.^[-16:0.5:-4]; % L2 or spatial penalty
 end
-% setup.lamgrid = 2.^[-15:1:-14]; % L1
-% setup.gamgrid = 2.^[-15:1:-13]; % L2 or spatial penalty
+setup.lamgrid = 2.^[-15:1:-14]; % L1
+setup.gamgrid = 2.^[-15:1:-13]; % L2 or spatial penalty
 
 % zscoreList = [true, false];
 for diffusion = diffusionList

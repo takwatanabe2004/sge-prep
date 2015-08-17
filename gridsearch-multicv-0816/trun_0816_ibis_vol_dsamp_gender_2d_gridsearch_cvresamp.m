@@ -27,7 +27,7 @@ opt.cv_stratify = setup.cv_stratify;
 %==============================================================================%
 hostname = tak_get_host;
 
-if strcmpi(hostname,'sbia-pc125-cinn') || strcmpi(hostname(1:8),'takanori')
+if strcmpi(hostname,'sbia-pc125-cinn') || strcmpi(hostname,'takanori-PC')
     dataPath=[get_rootdir,'/IBIS_',setup.diffusion,...
               '_designMatrix_dsamped_0815_2015'];
 else % on cluster computer
