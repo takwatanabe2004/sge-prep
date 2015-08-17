@@ -1,6 +1,8 @@
-function [cv_accuracy,output] = tak_cv_classifier(X, y, option)
-%% [cv_accuracy,output] = tak_cv_classifier(X, y, option)
+function [cv_accuracy,output] = tak_cv_classifier_zscore_internal(X, y, option)
+%% [cv_accuracy,output] = tak_cv_classifier_zscore_internal(X, y, option)
 %==============================================================================%
+% This will 
+%------------------------------------------------------------------------------%
 % Update 08/10/2015
 % - added "stratified" option
 %------------------------------------------------------------------------------%
@@ -33,6 +35,7 @@ ftest  = option.ftest;
 
 %| added 08/10 - stratified sampling: default off
 if ~isfield(option,'cv_stratify') || isempty(option.cv_stratify)
+    disp('--- Stratify field not given....no stratification used (default) ----')
     option.cv_stratify = false; 
 end
 
@@ -76,6 +79,29 @@ for k=1:K
 %     pause
 
     assert( sum(idx_ts & idx_tr)==0, 'overlap in training/testing index! code messed up!')
+    %%
+    xmean = mean(Xtr);
+    xstd  = std(Xtr);
+    Xtr_z = bsxfun(@minus, Xtr, xmean);
+    Xtr_z = bsxfun(@rdivide, Xtr_z, xstd);
+    assert( isequal(zscore(Xtr), Xtr_z) )
+    %%
+    Xts_z = bsxfun(@minus,     Xts, xmean);
+    Xts_z = bsxfun(@rdivide, Xts_z, xstd);
+%     keyboard
+    %%
+%     subplot(321),tplot(std(Xtr_z))
+%     subplot(323),tplot(std(Xtr))
+%     subplot(325),tplot(std(X))
+%     subplot(322),tplot(mean(Xtr_z))
+%     subplot(324),tplot(mean(Xtr))
+%     subplot(326),tplot(mean(X))
+%     subplot(413),tplot(std(Xts_z))
+%     subplot(414),tplot(std(Xts))
+    %%
+    Xtr = Xtr_z;
+    Xts = Xts_z;
+    %%
     %%%%%%%%%%% feature pruning %%%%%%%%%
     if isfield(option,'ttest')
 %         'ttest'
@@ -83,8 +109,8 @@ for k=1:K
 
         Xtr = Xtr(:,idx_best(1:option.ttest));
         Xts = Xts(:,idx_best(1:option.ttest));
-    end    
-
+    end   
+    %%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %==========================================================================%
     % Training
@@ -95,10 +121,7 @@ for k=1:K
     % Testing 
     %==========================================================================%
     [ypr, scr] = ftest(Xts,model);
-% %     [ypr, tmp, prob] = predict(yts, sparse(Xts), model, '-b 1 -q');
-% %     [ypr, tmp, prob] = predict(yts, sparse(Xts), model);
-%     [ypr,prob]
-%     scr = [1];
+%     [ypr, acc, prob] = predict(Xts, model, '-b -q')
     
     %%%%%% collect everything %%%%%
     ytrue = [ytrue; yts];
