@@ -1,29 +1,22 @@
-function [w,output]=tak_FL_regr_ADMM_FFT_over_relax(X,y,lam,gam,options,wtrue)
-% [w,output]=tak_FL_regr_ADMM_FFT_over_relax(X,y,lam,gam,options,wtrue)
-%==============================================================================%
-% - ADMM fused lasso net regression:
-%    1/2||y-Xw||^2 + lam * ||w||_1 + gamma2 * ||C*w||_1
-% 
-% options.K <- optionally precompute
-% wtrue <- optional...measure norm(west-wtrue) over iterations if inputted
-%------------------------------------------------------------------------------%
-% Update 08/18/2015
-% - removed "graph_info" as argument; get the info [C,A,b,NSIZE] from 
-%   'brain_mask' internally
-%------------------------------------------------------------------------------%
+function [w,output]=tak_TV_regr_ADMM_FFT_over_relax(X,y,lam,gam,options,graphInfo,wtrue)
+% [w,output]=tak_FL_regr_ADMM_FFT_over_relax(X,y,lam,gam,options,graphInfo,wtrue)
+% (08/16/2015)
+%=========================================================================%
+% - ADMM isotropic total-variation regression:
+%    1/2||y-Xw||^2 + lam * ||w||_1 + gam * ||w||_TV
+%-------------------------------------------------------------------------%
 % Here I replaced the \bar{y} and u update with the over-relaxation step
 % (see Boyd pg 21 sec 3.4.3)
-%==============================================================================%
-% 08/16/2015
+%=========================================================================%
+% options.K <- optionally precompute
+% wtrue <- optional...measure norm(west-wtrue) over iterations if inputted
 %% sort out 'options'
 [n,p]=size(X);
 
-%| update 08/18/2015: compute [C,A,b,NSIZE] internally
-[C, A, b, NSIZE] = tak_ibis_Ccirc_bmask(options.brain_mask);
-% C = graphInfo.C;
-% A = graphInfo.A;
-% b = graphInfo.b; 
-% NSIZE = graphInfo.NSIZE; 
+C = graphInfo.C;
+A = graphInfo.A;
+b = graphInfo.b; 
+NSIZE = graphInfo.NSIZE; 
 
 pp=size(A,1);
 e=size(C,1);
@@ -69,6 +62,16 @@ else
         end
     end
 end
+
+%-------------------------------------------------------------------------%
+% create index cell array of the coordinate system
+% - needed for the prox operator unique to the isotropic tv norm (v3 update)
+%-------------------------------------------------------------------------%
+DIM = length(NSIZE);
+idxCell=cell(DIM,1);
+for i=1:DIM
+    idxCell{i}=1+(i-1)*pp:i*pp;
+end
 %% initialize variables, function handles, and terms used through admm steps
 %==========================================================================
 % initialize variables
@@ -88,7 +91,7 @@ u3 = zeros(pp,1);
 % function handles
 %==========================================================================
 soft=@(t,tau) sign(t).*max(0,abs(t)-tau); % soft-thresholder
-bsoft=@(t,tau) soft(t,tau).*b + (~b).*t; % for v3 update
+% bsoft=@(t,tau) soft(t,tau).*b + (~b).*t; % for v3 update
 
 %==========================================================================
 % precompute terms used throughout admm
@@ -116,7 +119,9 @@ h=fftn(reshape(full(H(:,1)),NSIZE),NSIZE);
 % keep track of function value (optional, as it could slow down algorithm)
 %=========================================================================%
 if funcval
-    fval = @(w) 1/2 * norm(y-X*w)^2 + lam*norm(w,1) + gam*norm(b.*(C*A*w),1);
+    warning('Function value not yet supported for isotropic-TV...fval not tracked')
+    fval = @(w) 0;
+%     fval = @(w) 1/2 * norm(y-X*w)^2 + lam*norm(w,1) + gam*norm(b.*(C*A*w),1);
 end
 %% begin admm iteration
 time.total=tic;
@@ -157,7 +162,8 @@ for k=1:maxiter
 %     keyboard
 %     v2=C*v3-u2;
 %     v2(b)=soft(v2(b),gam/rho);  
-    v2 = bsoft(C*v3 - u2, gam/rho);
+%     v2 = bsoft(C*v3 - u2, gam/rho);
+    v2 = tak_isoTV_prox(C*v3 - u2,b,gam/rho,idxCell);
 
     %======================================================================
     % update second variable block: (v1,v3)

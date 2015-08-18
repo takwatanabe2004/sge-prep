@@ -1,29 +1,21 @@
-function [w,output]=tak_FL_regr_ADMM_FFT_over_relax(X,y,lam,gam,options,wtrue)
-% [w,output]=tak_FL_regr_ADMM_FFT_over_relax(X,y,lam,gam,options,wtrue)
+function [w,output]=tak_TV_group_regr_ADMM_FFT_over_relax(X,y,lam,gam,options,nvol,wtrue)
+% [w,output]=tak_TV_group_regr_ADMM_FFT_over_relax(X,y,lam,gam,options,nvol,wtrue)
+% (08/18/2015)
 %==============================================================================%
 % - ADMM fused lasso net regression:
 %    1/2||y-Xw||^2 + lam * ||w||_1 + gamma2 * ||C*w||_1
-% 
-% options.K <- optionally precompute
-% wtrue <- optional...measure norm(west-wtrue) over iterations if inputted
-%------------------------------------------------------------------------------%
-% Update 08/18/2015
-% - removed "graph_info" as argument; get the info [C,A,b,NSIZE] from 
-%   'brain_mask' internally
 %------------------------------------------------------------------------------%
 % Here I replaced the \bar{y} and u update with the over-relaxation step
 % (see Boyd pg 21 sec 3.4.3)
 %==============================================================================%
-% 08/16/2015
+% options.K <- optionally precompute
+% wtrue <- optional...measure norm(west-wtrue) over iterations if inputted
 %% sort out 'options'
-[n,p]=size(X);
+[n,p_all]=size(X);
+p = p_all/nvol;
 
-%| update 08/18/2015: compute [C,A,b,NSIZE] internally
 [C, A, b, NSIZE] = tak_ibis_Ccirc_bmask(options.brain_mask);
-% C = graphInfo.C;
-% A = graphInfo.A;
-% b = graphInfo.b; 
-% NSIZE = graphInfo.NSIZE; 
+B = repmat(b,[1,nvol]);
 
 pp=size(A,1);
 e=size(C,1);
@@ -39,6 +31,7 @@ if(~exist('options','var')||isempty(options)),
     progress = inf;
     silence = false;
     funcval = false;
+    L21 = true; % <- default: use L21 group lasso penalty
 
     if p > n
         K=tak_admm_inv_lemma(X,1/(2*rho));
@@ -55,7 +48,12 @@ else
     progress  = options.progress;    % <- display "progress" (every k iterations)
     silence   = options.silence;     % <- display termination condition
     funcval   = options.funcval;     % <- track function values (may slow alg.)
-
+    if isfield(options,'L21')
+        L21   = options.L21;          % <- use L1/L2 penalty? (default: true)
+    else
+        disp('L21 option not provided; use group lasso as default')
+        L21 = true;
+    end
     %=====================================================================%
     % Matrix K for inversion lemma 
     % (optionally precomputed...saves time during gridsearch)
@@ -69,26 +67,44 @@ else
         end
     end
 end
+
+%-------------------------------------------------------------------------%
+% create index cell array of the coordinate system
+% - needed for the prox operator unique to the isotropic tv norm (v3 update)
+%-------------------------------------------------------------------------%
+DIM = length(NSIZE);
+idxCell=cell(DIM,1);
+for i=1:DIM
+    idxCell{i}=1+(i-1)*pp:i*pp;
+end
 %% initialize variables, function handles, and terms used through admm steps
 %==========================================================================
 % initialize variables
 %==========================================================================
 % primal variable
-w  = zeros(p,1); 
-v1 = zeros(p,1);
-v2 = zeros(e,1);
-v3 = zeros(pp,1);
+W  = zeros(p,nvol); 
+V1 = zeros(p,nvol);
+V2 = zeros(e,nvol);
+V3 = zeros(pp,nvol);
 
 % dual variables
-u1 = zeros(p,1);
-u2 = zeros(e,1);
-u3 = zeros(pp,1);
+U1 = zeros(p,nvol);
+U2 = zeros(e,nvol);
+U3 = zeros(pp,nvol);
 
 %==========================================================================
 % function handles
 %==========================================================================
 soft=@(t,tau) sign(t).*max(0,abs(t)-tau); % soft-thresholder
 bsoft=@(t,tau) soft(t,tau).*b + (~b).*t; % for v3 update
+
+if L21
+    %| proximal operator for group L21 penalty
+    prox_op = @(W,tau) tsoftvec( W, tau);
+else
+    %| proximal operator for L1 penalty
+    prox_op = @(W,tau) soft(W,tau);
+end
 
 %==========================================================================
 % precompute terms used throughout admm
@@ -99,8 +115,9 @@ if n >= p
 end
 Ct=C';
 At=A';
+CA=C*A;
 % CtC=Ct*C;
-% Ip=speye(p);
+Ip=speye(p_all);
 % Cv2=zeros(e,1); % initialization needed
 
 %-------------------------------------------------------------------------%
@@ -111,13 +128,20 @@ H=(Ct*C)+speye(pp);
 % keyboard
 % spectrum of matrix H...ie, the fft of its 1st column
 h=fftn(reshape(full(H(:,1)),NSIZE),NSIZE); 
+hh = repmat(h,[ones(size(NSIZE)),nvol]);
 
 %=========================================================================%
 % keep track of function value (optional, as it could slow down algorithm)
 %=========================================================================%
-if funcval
-    fval = @(w) 1/2 * norm(y-X*w)^2 + lam*norm(w,1) + gam*norm(b.*(C*A*w),1);
+if L21
+    % last term sums the 2-norm of the rows
+    fval = @(W) 1/2 * norm( y-X*W(:) )^2 + lam*tak_norm_L21(W) + ...
+                                           + gam*norm( vec(B.*(CA*W)), 1);
+else
+    fval = @(W) 1/2 * norm( y-X*W(:) )^2 + lam*norm(W(:),1) + ...
+                                           + gam*norm( vec(B.*(CA*W)), 1);
 end
+fmatrix = @(w) reshape(w, [p,nvol]);
 %% begin admm iteration
 time.total=tic;
 time.inner=tic;
@@ -125,15 +149,15 @@ time.inner=tic;
 alpha = 1.8; % <- relaxation parameter (see boyd 3.4.3)
 
 rel_changevec=zeros(maxiter,1);
-w_old=w;
+w_old=W;
 % disp('go')
 
 % keep track of function value
 if funcval, fvalues=zeros(maxiter,1); end;
 if exist('wtrue','var'), wdist=zeros(maxiter,1); end;
 for k=1:maxiter
-    if funcval,  fvalues(k)=fval(w); end;   
-    if exist('wtrue','var'), wdist(k)=norm(w-wtrue); end;
+    if funcval,  fvalues(k)=fval(W); end;   
+    if exist('wtrue','var'), wdist(k)=norm(W-wtrue); end;
     
     if mod(k,progress)==0 && k~=1
         str='--- %3d out of %d ... Tol=%2.2e (tinner=%4.3fsec, ttotal=%4.3fsec) ---\n';
@@ -146,18 +170,19 @@ for k=1:maxiter
     %======================================================================
     % update w (if p > n, apply inversion lemma)
 %     keyboard
-    q = Xty + rho*(v1-u1) + rho*(At*(v3-u3));
+    q = Xty + vec(   rho*(V1-U1) + rho*(At*(V3-U3))   );
     if p > n
-        w=q/(2*rho) - 1/(2*rho)^2*(K*(X*q));
+        W = q/(2*rho) - 1/(2*rho)^2*(K*(X*q));
     else
-        w = (XtX + rho*Ip)\q;
+        W = (XtX + rho*Ip)\q;
     end
+    W = fmatrix(W);
     
     % update v2
 %     keyboard
-%     v2=C*v3-u2;
-%     v2(b)=soft(v2(b),gam/rho);  
-    v2 = bsoft(C*v3 - u2, gam/rho);
+    for ii=1:nvol
+        V2(:,ii) = tak_isoTV_prox(C*V3(:,ii) - U2(:,ii),b,gam/rho,idxCell);
+    end
 
     %======================================================================
     % update second variable block: (v1,v3)
@@ -165,26 +190,37 @@ for k=1:maxiter
     % Use relaxation with alpha
     %======================================================================
     % update v1 
-    v1 = soft(w+u1/alpha,lam/(rho*alpha));
+    V1 = prox_op(W+U1/alpha,lam/(rho*alpha));
+%     keyboard
     
     % update v3 (use fft)
-    tmp=(Ct*(v2+u2/alpha))+(A*w+u3/alpha);
-    tmp= reshape(tmp, NSIZE);
-    v3=ifftn( fftn(tmp,NSIZE)./h, NSIZE);
-    v3=v3(:);
+    TMP = (Ct*(V2+U2/alpha))+(A*W+U3/alpha);
+%     for ii=1:q
+% %         tmp=(Ct*(V2(:,ii)+U2(:,ii)))+(A*W(:,ii)+U3(:,ii));
+% %         tmp= reshape(tmp, NSIZE);
+%         tmp= reshape(TMP(:,ii), NSIZE);
+%         tmp=ifftn( fftn(tmp,NSIZE)./h);
+%         V3(:,ii)=tmp(:);
+%     end
+    %---------------------------------------------------------------------%
+    % better loopless version using hh = repmat(h,[ones(size(NSIZE)),nvol]);
+    %---------------------------------------------------------------------%
+    TMP = reshape(TMP,[NSIZE,nvol]);
+    TMP = ifftn(fftn(TMP)./hh); %keyboard
+    V3  = reshape(TMP, [pp,nvol]);
     
     %======================================================================
     % dual updates
     %======================================================================
-    u1=u1+alpha*(w-v1);
-    u2=u2+alpha*(v2-C*v3);
-    u3=u3+alpha*(A*w-v3);
+    U1=U1+alpha*(W-V1);
+    U2=U2+alpha*(V2-C*V3);
+    U3=U3+alpha*(A*W-V3);
 
     %======================================================================
     % Check termination criteria
     %======================================================================
     %%% relative change in primal variable norm %%%
-    rel_change=norm(w-w_old)/norm(w_old);
+    rel_change=norm(W-w_old)/norm(w_old);
     rel_changevec(k)=rel_change;
     time.rel_change=tic;
     
@@ -201,13 +237,13 @@ for k=1:maxiter
     end     
     
     % needed to compute relative change in primal variable
-    w_old=w;
+    w_old=W;
 end
 
 time.total=toc(time.total);
 %% organize output
 % primal variables
-w=v1;
+w=vec(V1);
 % output.w=v2;
 % output.v=v;
 
@@ -228,17 +264,26 @@ output.rel_changevec=rel_changevec(1:k);
 
 % (optional) final function value
 if funcval,  
-    fvalues(k+1)=fval(w); 
+    fvalues(k+1)=fval(W); 
     fvalues=fvalues(1:k+1);
     output.fval=fvalues;
-    tplott(log10(fvalues))
+%     tplott(log10(fvalues))
 end;
 
 % (optional) distance to wtrue
 if exist('wtrue','var')
-    wdist(k+1)=norm(w-wtrue); % <- final function value
+    wdist(k+1)=norm(W-wtrue); % <- final function value
     wdist=wdist(1:k+1);
     output.wdist=wdist;
 end;
 
+%% ensure support is equal if MTL is used
+if L21
+   for i = 1:nvol
+       maskvec{i} = W(:,i)==0;
+   end
+   for i = 2:nvol
+       assert(isequal(maskvec{1}, maskvec{i}))
+   end
+end
 % keyboard
