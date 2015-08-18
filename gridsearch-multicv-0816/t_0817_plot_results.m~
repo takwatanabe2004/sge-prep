@@ -1,0 +1,25 @@
+clear
+close all
+pen = 'flass';
+mod = 'TR';
+
+load(['VOLdsamp_gender_gridcv_',mod,'v12_',pen,'_LR-train_HR-test.mat'])
+
+figure
+subplot(231),imagesc(test_results.acc'),impixelinfo,colorbar
+subplot(232),imagesc(grid_results.acc(:,:,1)'),impixelinfo,colorbar
+subplot(233),imagesc(grid_results.acc(:,:,2)'),impixelinfo,colorbar
+subplot(234),imagesc(grid_results.acc(:,:,3)'),impixelinfo,colorbar
+subplot(235),imagesc(grid_results.acc(:,:,4)'),impixelinfo,colorbar
+subplot(236),imagesc(grid_results.acc(:,:,5)'),impixelinfo,colorbar
+
+load(['VOLdsamp_gender_gridcv_',mod,'v24_',pen,'_LR-train_HR-test.mat'])
+
+figure
+subplot(121),imagesc(test_results.acc'),impixelinfo,colorbar
+subplot(122),imagesc(grid_results.acc(:,:,1)'),impixelinfo,colorbar
+
+figure
+subplot(131),imagesc(grid_results.acc(:,:,1)'),impixelinfo,colorbar
+subplot(132),imagesc(grid_results.acc(:,:,2)'),impixelinfo,colorbar
+subplot(133),imagesc(grid_results.acc(:,:,3)'),impixelinfo,colorbar

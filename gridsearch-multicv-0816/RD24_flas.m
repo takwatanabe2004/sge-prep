@@ -3,9 +3,9 @@ clear
 close all
 drawnow
 
-diffusionList = {'FA'}; % {'FA','TR','AX','RD'};
-sessionList = {'v06'}; %{'v06', 'v12', 'v24'};
-setup.clfmodel = 'elnet'; % {'elnet','grnet','flass','isotv'}
+diffusionList = {'RD'}; % {'FA','TR','AX','RD'};
+sessionList = {'v24'}; %{'v06', 'v12', 'v24'};
+setup.clfmodel = 'flass'; % {'elnet','grnet','flass','isotv'}
 
 train_groupList = {'HR-','LR-'};
 test_groupList  = {'LR-','HR-'};

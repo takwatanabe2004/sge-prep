@@ -3,7 +3,7 @@ clear
 close all
 drawnow
 
-diffusionList = {'FA'}; % {'FA','TR','AX','RD'};
+diffusionList = {'RD'}; % {'FA','TR','AX','RD'};
 sessionList = {'v06'}; %{'v06', 'v12', 'v24'};
 setup.clfmodel = 'elnet'; % {'elnet','grnet','flass','isotv'}
 
