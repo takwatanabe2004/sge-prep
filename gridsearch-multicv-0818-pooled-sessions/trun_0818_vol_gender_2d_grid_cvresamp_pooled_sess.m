@@ -1,8 +1,8 @@
-function trun_0818_vol_gender_2d_grid_cvresamp_pooled_modes(setup)
+function trun_0818_vol_gender_2d_grid_cvresamp_pooled_sess(setup)
 %==============================================================================%
 % Classify 
 % 
-% Code based on t_0818_vol_classify_gender_subgroup_group_lasso_modalities.m
+% Code based on t_0816_vol_classify_gender_subgroup_group_lasso_time.m
 %------------------------------------------------------------------------------%
 % Do gridsearch via K-fold-CV...repeat multiple times with different subsamples
 % 
@@ -30,43 +30,88 @@ nvol = setup.nvol;
 hostname = tak_get_host;
 
 if strcmpi(hostname,'sbia-pc125-cinn') || strcmpi(hostname,'takanori-PC')
-    dataPath=[get_rootdir,'/IBIS_FA_designMatrix_dsamped_0815_2015'];
+    dataPath=[get_rootdir,'/IBIS_',setup.diffusion,'_designMatrix_dsamped_0815_2015'];
 else % on cluster computer
-    dataPath=[fileparts(pwd),'/data/IBIS_FA_designMatrix_dsamped_0815_2015'];
+    dataPath=[fileparts(pwd),'/data/IBIS_',setup.diffusion,...
+        '_designMatrix_dsamped_0815_2015'];
 end
-invars = {'graph_info','meta_info','session_mask','brain_mask'};
+invars = {'designMatrix','graph_info','meta_info','session_mask','brain_mask'};
 load(dataPath,invars{:})
+p = sum(brain_mask(:));
 C = graph_info.incidenceMatrix;
 
 %==============================================================================%
 % load data and parse relevant info
 %==============================================================================%
-nvol = 4;
-[X] = ibis_get_all_vol_design_0818;
-p = size(X,2)/nvol;
+% find subjects with all 3 scans available
+meta_allscans = tak_meta_info_mask(meta_info, session_mask.all_scans);
+designAllScans = designMatrix(session_mask.all_scans,:);
+
+n_allscans = length(meta_allscans.id)/3; % divide by 3 since we want # subjects
+
+X = zeros(n_allscans, 3*p);
+for isub = 1:n_allscans
+    idx_scan1 = 3*(isub-1) + 1;
+    idx_scan2 = 3*(isub-1) + 2;
+    idx_scan3 = 3*(isub-1) + 3;
+    
+    scanList{isub,1} = [meta_allscans.lookup{idx_scan1},'-', ...
+                        meta_allscans.lookup{idx_scan2},'-', ...
+                        meta_allscans.lookup{idx_scan3}];
+    assert( isequal( ...
+                     meta_allscans.id(idx_scan1),...
+                     meta_allscans.id(idx_scan2),...
+                     meta_allscans.id(idx_scan3)))
+    assert( meta_allscans.session(idx_scan1) == 6  && ...
+            meta_allscans.session(idx_scan2) == 12 && ...
+            meta_allscans.session(idx_scan3) == 24)
+        
+    scan1 = designAllScans(idx_scan1,:);
+    scan2 = designAllScans(idx_scan2,:);
+    scan3 = designAllScans(idx_scan3,:);
+    
+    idx1 = 1:p;
+    idx2 = p+1:2*p;
+    idx3 = 2*p+1:3*p;
+    
+    X(isub,idx1) = scan1;
+    X(isub,idx2) = scan2;
+    X(isub,idx3) = scan3;
+end
+
+%| take the v06 meta-info to remove duplicate 
+%| (choice of v06 arbitrary; could  have been v12 or v24)
+meta_allscans = tak_meta_info_mask_label(meta_allscans, 'v06');
 
 %==============================================================================%
 % break up into gender
 %==============================================================================%
-[meta_male,mask_male] = tak_meta_info_mask_label(meta_info, 'male', setup.session);
-[meta_fema,mask_fema] = tak_meta_info_mask_label(meta_info, 'female',setup.session);
+[meta_male,mask_male] = tak_meta_info_mask_label(meta_allscans, 'male');
+[meta_fema,mask_fema] = tak_meta_info_mask_label(meta_allscans, 'female');
 
-Xmale = X(mask_male,:);
-Xfema = X(mask_fema,:);
+Xp = X(mask_male,:);
+Xn = X(mask_fema,:);
+
+% tak_meta_info_summary(meta_male)
+% tak_meta_info_summary(meta_fema)
+% return
 
 %==============================================================================%
 % create subgroups
 %==============================================================================%
+Xp_start = Xp;
+Xn_start = Xn;
+
 [~,mask1]=tak_meta_info_mask_label(meta_male, group_train);
 [~,mask2]=tak_meta_info_mask_label(meta_fema, group_train);
 [~,mask_test1] = tak_meta_info_mask_label(meta_male, group_test);
 [~,mask_test2] = tak_meta_info_mask_label(meta_fema, group_test);
 
-Xp = Xmale(mask1,:);
-Xn = Xfema(mask2,:);
+Xp = Xp_start(mask1,:);
+Xn = Xn_start(mask2,:);
 
-Xp_ts = Xmale(mask_test1,:);
-Xn_ts = Xfema(mask_test2,:);
+Xp_ts = Xp_start(mask_test1,:);
+Xn_ts = Xn_start(mask_test2,:);
 
 % disp('*** Training groups ***')
 % tak_meta_info_summary(meta_male,mask1)
@@ -83,6 +128,7 @@ yp_ts =  ones(size(Xp_ts,1),1);
 yn_ts = -ones(size(Xn_ts,1),1);
 Xts = vertcat(Xp_ts, Xn_ts);
 yts = vertcat(yp_ts, yn_ts);
+% S_0815_vol_classify_gender_subgroup
 %% setup classifier
 switch setup.clfmodel
     case 'en'
@@ -222,7 +268,6 @@ for igam = 1:length(setup.gamgrid)
         test_results.auc(igam,ilam) = auc;
         test_results.fpr{igam,ilam} = fpr;
         test_results.tpr{igam,ilam} = tpr;
-        test_results.sparsity{igam,ilam} = nnz(model.w)/numel(model.w);
         for iresamp = 1:setup.nresamp
             %==================================================================%
             % apply cross-validation on training group
