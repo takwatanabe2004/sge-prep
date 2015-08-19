@@ -37,7 +37,6 @@ end
 invars = {'graph_info','meta_info','session_mask','brain_mask'};
 load(dataPath,invars{:})
 C = graph_info.incidenceMatrix;
-
 %==============================================================================%
 % load data and parse relevant info
 %==============================================================================%
@@ -153,9 +152,10 @@ flag_done = false; %| indicates completion status of the script
 outVars = {'flag_done','setup','grid_results','test_results','igam','ilam', ... 
            'aux_info', 'timeStamp', 'mFileName'};  
 
-       
-outname = ['VOLdsamp_gender_gridcv_',...
-            setup.clfmodel,'_', group_train,'train_', group_test,'test'];
+outname = ['VOLdsamp_gender_gridcv_', ...
+          group_train,'train_', group_test,'test_',...
+          setup.session,'_',setup.clfmodel];
+      
 if setup.L21
     outname = [outname,'_L21']
 else
@@ -222,7 +222,7 @@ for igam = 1:length(setup.gamgrid)
         test_results.auc(igam,ilam) = auc;
         test_results.fpr{igam,ilam} = fpr;
         test_results.tpr{igam,ilam} = tpr;
-        test_results.sparsity{igam,ilam} = nnz(model.w)/numel(model.w);
+        test_results.sparsity(igam,ilam) = nnz(model.w)/numel(model.w);
         for iresamp = 1:setup.nresamp
             %==================================================================%
             % apply cross-validation on training group

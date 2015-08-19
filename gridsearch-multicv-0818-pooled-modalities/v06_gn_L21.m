@@ -3,8 +3,8 @@ clear
 close all
 drawnow
 
-setup.session = 'v06'; % {'v06', 'v12', 'v24'};
 setup.clfmodel = 'gn'; % {'en','gn','tv'}
+setup.session = 'v06'; % {'v06', 'v12', 'v24'};
 setup.L21 = true; % {true,false}
 setup.nvol=4;
 

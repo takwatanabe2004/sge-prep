@@ -3,9 +3,9 @@ clear
 close all
 drawnow
 
-setup.session = 'v06'; % {'v06', 'v12', 'v24'};
 setup.clfmodel = 'en'; % {'en','gn','tv'}
-setup.L21 = false % {true,false}
+setup.session = 'v06'; % {'v06', 'v12', 'v24'};
+setup.L21 = false; % {true,false}
 setup.nvol=4;
 
 train_groupList = {'HR-','LR-'};
